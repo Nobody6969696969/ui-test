@@ -1928,8 +1928,8 @@ Countdown.TextSize = 13
 Countdown.TextColor3 = Library.Theme.Accent
 
 --// COUNTDOWN LOGIC
-local duration = 24 * 60 * 60 -- 24 hours (change if needed)
-local endTime = os.time() + duration
+local expiresDuration = tonumber(Data.ExpiresSeconds) or (24 * 60 * 60)
+local endTime = os.time() + math.max(0, math.floor(expiresDuration))
 
 RunService.Heartbeat:Connect(function()
     local remaining = math.max(0, endTime - os.time())
@@ -3842,6 +3842,8 @@ end)
                 Library:RefreshConfigsList(ConfigsDropdown)
             end
         end
+
+        return SettingsPage
     end
 end
 
@@ -3861,8 +3863,30 @@ Library.CreateWindow = function(self, Data)
         Window.Watermark = Watermark
     end
 
-    if Data.SettingsTabEnabled then
-        self:CreateSettingsPage(Window, Watermark)
+    Window._AutoSettingsEnabled = Data.SettingsTabEnabled and true or false
+    Window._AutoSettingsWatermark = Watermark
+
+    Window.CreateTab = function(Win, TabData)
+        local Page = Win:Page(TabData)
+
+        if Win._AutoSettingsEnabled then
+            if not Win.SettingsPage then
+                Win.SettingsPage = Library:CreateSettingsPage(Win, Win._AutoSettingsWatermark)
+            else
+                Win.SettingsPage.Items["Inactive"].Instance.Parent = Win.Items["Pages"].Instance
+
+                for Index, Value in Win.Pages do
+                    if Value == Win.SettingsPage then
+                        TableRemove(Win.Pages, Index)
+                        break
+                    end
+                end
+
+                TableInsert(Win.Pages, Win.SettingsPage)
+            end
+        end
+
+        return Page
     end
 
     return Window
