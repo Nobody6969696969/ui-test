@@ -3846,220 +3846,84 @@ end)
 end
 
 
--- clean aliases / wrappers for a one-load GitHub library
-local function shallowCopy(tbl)
-    local out = {}
-    if type(tbl) == "table" then
-        for k, v in pairs(tbl) do
-            out[k] = v
-        end
-    end
-    return out
-end
-
-local function applyFallbacks(target, source, map)
-    for newKey, oldKeys in pairs(map) do
-        if target[newKey] == nil then
-            for _, oldKey in ipairs(oldKeys) do
-                if source[oldKey] ~= nil then
-                    target[newKey] = source[oldKey]
-                    break
-                end
-            end
-        end
-    end
-    return target
-end
-
-local function wrapLabel(label)
-    if type(label) ~= "table" then
-        return label
-    end
-
+local function __patchLabel(label)
+    if type(label) ~= "table" then return label end
     if label.Colorpicker and not label.CreateColorPicker then
-        label.CreateColorPicker = function(self, data)
-            local opts = shallowCopy(data)
-            opts = applyFallbacks(opts, data or {}, {
-                Flag = {"Flag", "Id"},
-                Default = {"Default", "Value"},
-                Alpha = {"Alpha", "Transparency"},
-                Callback = {"Callback", "OnChanged"}
-            })
-            return self:Colorpicker(opts)
-        end
+        label.CreateColorPicker = label.Colorpicker
     end
-
     if label.Keybind and not label.CreateKeybind then
-        label.CreateKeybind = function(self, data)
-            local opts = shallowCopy(data)
-            opts = applyFallbacks(opts, data or {}, {
-                Name = {"Name", "Title", "Text"},
-                Flag = {"Flag", "Id"},
-                Mode = {"Mode"},
-                Default = {"Default", "Value", "Key"},
-                Callback = {"Callback", "OnChanged"}
-            })
-            return self:Keybind(opts)
-        end
+        label.CreateKeybind = label.Keybind
     end
-
     return label
 end
 
-local function wrapSection(section)
-    if type(section) ~= "table" then
-        return section
-    end
+local function __patchSection(section)
+    if type(section) ~= "table" then return section end
 
     if section.Button and not section.CreateButton then
-        section.CreateButton = function(self, data)
-            local opts = shallowCopy(data)
-            opts = applyFallbacks(opts, data or {}, {
-                Name = {"Name", "Title", "Text"},
-                Callback = {"Callback", "OnClick", "OnPressed"}
-            })
-            return self:Button(opts)
-        end
+        section.CreateButton = section.Button
     end
-
     if section.Toggle and not section.CreateToggle then
-        section.CreateToggle = function(self, data)
-            local opts = shallowCopy(data)
-            opts = applyFallbacks(opts, data or {}, {
-                Name = {"Name", "Title", "Text"},
-                Flag = {"Flag", "Id"},
-                Default = {"Default", "Value", "State"},
-                Callback = {"Callback", "OnChanged"}
-            })
-            return self:Toggle(opts)
-        end
+        section.CreateToggle = section.Toggle
     end
-
     if section.Slider and not section.CreateSlider then
-        section.CreateSlider = function(self, data)
-            local opts = shallowCopy(data)
-            opts = applyFallbacks(opts, data or {}, {
-                Name = {"Name", "Title", "Text"},
-                Flag = {"Flag", "Id"},
-                Default = {"Default", "Value"},
-                Min = {"Min", "Minimum"},
-                Max = {"Max", "Maximum"},
-                Suffix = {"Suffix", "Unit"},
-                Decimals = {"Decimals", "Decimal"},
-                Callback = {"Callback", "OnChanged"}
-            })
-            return self:Slider(opts)
-        end
+        section.CreateSlider = section.Slider
     end
-
     if section.Dropdown and not section.CreateDropdown then
-        section.CreateDropdown = function(self, data)
-            local opts = shallowCopy(data)
-            opts = applyFallbacks(opts, data or {}, {
-                Name = {"Name", "Title", "Text"},
-                Flag = {"Flag", "Id"},
-                Items = {"Items", "Options", "Values", "List"},
-                Default = {"Default", "Value"},
-                Multi = {"Multi", "Multiple"},
-                Callback = {"Callback", "OnChanged"}
-            })
-            return self:Dropdown(opts)
-        end
+        section.CreateDropdown = section.Dropdown
     end
-
     if section.Textbox and not section.CreateTextbox then
-        section.CreateTextbox = function(self, data)
-            local opts = shallowCopy(data)
-            opts = applyFallbacks(opts, data or {}, {
-                Name = {"Name", "Title", "Text"},
-                Placeholder = {"Placeholder", "Hint"},
-                Numeric = {"Numeric", "NumbersOnly"},
-                Finished = {"Finished", "Enter"},
-                Flag = {"Flag", "Id"},
-                Callback = {"Callback", "OnChanged"}
-            })
-            return self:Textbox(opts)
-        end
+        section.CreateTextbox = section.Textbox
     end
 
     if section.Label and not section.CreateLabel then
         section.CreateLabel = function(self, text)
-            return wrapLabel(self:Label(text))
-        end
-    end
-
-    if section.Seperator and not section.CreateSeparator then
-        section.CreateSeparator = function(self, text)
-            return self:Seperator(text)
+            return __patchLabel(self:Label(text))
         end
     end
 
     return section
 end
 
-local function wrapTab(tab)
-    if type(tab) ~= "table" then
-        return tab
-    end
+local function __patchTab(tab)
+    if type(tab) ~= "table" then return tab end
 
     if tab.Section and not tab.CreateSection then
         tab.CreateSection = function(self, data)
-            local opts = shallowCopy(data)
-            opts = applyFallbacks(opts, data or {}, {
-                Name = {"Name", "Title", "Text"},
-                Side = {"Side", "Column"}
-            })
-            return wrapSection(self:Section(opts))
+            return __patchSection(self:Section(data))
         end
     end
 
     return tab
 end
 
-local OriginalWindow = Library.Window
-Library._OriginalWindow = OriginalWindow
-
-Library.CreateWindow = function(self, data)
-    local opts = shallowCopy(data)
-    opts = applyFallbacks(opts, data or {}, {
-        Name = {"Name", "Title", "Text"},
-        SubName = {"SubName", "Subtitle", "Description"},
-        Logo = {"Logo", "Icon", "Image"}
-    })
-    local window = OriginalWindow(self, opts)
+local function __patchWindow(window)
+    if type(window) ~= "table" then return window end
 
     if window.Page and not window.CreateTab then
-        window.CreateTab = function(win, tabData)
-            local tabOpts = shallowCopy(tabData)
-            tabOpts = applyFallbacks(tabOpts, tabData or {}, {
-                Name = {"Name", "Title", "Text"},
-                Icon = {"Icon", "Logo", "Image"}
-            })
-            return wrapTab(win:Page(tabOpts))
+        window.CreateTab = function(self, data)
+            return __patchTab(self:Page(data))
         end
-    end
-
-    if window.Page and not window.AddTab then
-        window.AddTab = window.CreateTab
     end
 
     return window
 end
 
-Library.Window = Library.CreateWindow
-
-Library.CreateWatermark = function(self, data, icon)
-    if type(data) == "table" then
-        return self:Watermark(data.Text or data.Title or data.Name or "Watermark", data.Icon or data.Logo or data.Image)
+if Library.Window and not Library.CreateWindow then
+    function Library:CreateWindow(data)
+        data = data or {}
+        return __patchWindow(self:Window({
+            Name = data.Title or data.Name or "Window",
+            SubName = data.SubTitle or data.SubName or data.Description or "",
+            Logo = data.Logo or data.Icon
+        }))
     end
-    return self:Watermark(data, icon)
 end
 
-Library.CreateNotification = function(self, data, content, duration, icon)
-    if type(data) == "table" then
-        return self:Notify(data.Title or data.Name or "Notification", data.Content or data.Text or data.Description or "", data.Time or data.Duration, data.Icon or data.Logo)
+if Library.Watermark and not Library.CreateWatermark then
+    function Library:CreateWatermark(text, logo)
+        return self:Watermark(text, logo)
     end
-    return self:Notify(data, content, duration, icon)
 end
 
 getgenv().Library = Library
