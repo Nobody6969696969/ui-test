@@ -3848,7 +3848,95 @@ end)
 end
 
 
+
 -- loadstring-friendly wrappers / aliases
+Library.LucideIconsUrl = "https://raw.githubusercontent.com/Footagesus/Icons/refs/heads/main/lucide/dist/Icons.lua"
+Library.IconPacks = Library.IconPacks or {}
+Library.ActiveIconPack = "lucide"
+
+function Library:LoadIconPack(Url, PackName)
+    PackName = PackName or "lucide"
+
+    if self.IconPacks[PackName] then
+        return self.IconPacks[PackName]
+    end
+
+    local Success, Result = pcall(function()
+        local Source = game:HttpGet(Url)
+        local Chunk = loadstring(Source)
+        if not Chunk then
+            return {}
+        end
+
+        local Icons = Chunk()
+        if type(Icons) ~= "table" then
+            return {}
+        end
+
+        return Icons
+    end)
+
+    self.IconPacks[PackName] = Success and Result or {}
+    return self.IconPacks[PackName]
+end
+
+function Library:SetIconPack(PackName)
+    self.ActiveIconPack = PackName or "lucide"
+end
+
+function Library:GetIconPack(PackName)
+    PackName = PackName or self.ActiveIconPack or "lucide"
+
+    if not self.IconPacks[PackName] then
+        if PackName == "lucide" then
+            self:LoadIconPack(self.LucideIconsUrl, "lucide")
+        else
+            self.IconPacks[PackName] = {}
+        end
+    end
+
+    return self.IconPacks[PackName] or {}
+end
+
+function Library:ResolveIcon(Icon, PackName)
+    if not Icon or Icon == "" then
+        return Icon
+    end
+
+    if typeof(Icon) ~= "string" then
+        return Icon
+    end
+
+    if Icon:match("^rbxassetid://") or Icon:match("^https?://") then
+        return Icon
+    end
+
+    local Icons = self:GetIconPack(PackName)
+    return Icons[string.lower(Icon)] or Icon
+end
+
+local OriginalWindowFunction = Library.Window
+Library.Window = function(self, Data)
+    Data = Data or {}
+
+    Data.Logo = self:ResolveIcon(Data.Logo)
+    Data.logo = self:ResolveIcon(Data.logo)
+
+    if Data.WatermarkLogo then
+        Data.WatermarkLogo = self:ResolveIcon(Data.WatermarkLogo)
+    end
+
+    return OriginalWindowFunction(self, Data)
+end
+
+local OriginalSectionFunction = Library.Pages.Section
+Library.Pages.Section = function(self, Data)
+    Data = Data or {}
+    Data.Icon = Library:ResolveIcon(Data.Icon or Data.icon)
+    Data.icon = Data.Icon
+    return OriginalSectionFunction(self, Data)
+end
+
 Library.CreateWindow = function(self, Data)
     Data = Data or {}
 
@@ -3858,7 +3946,7 @@ Library.CreateWindow = function(self, Data)
     if Data.WatermarkEnabled then
         Watermark = self:Watermark(
             Data.WatermarkText or Data.Name or "Window",
-            Data.WatermarkLogo or Data.Logo
+            self:ResolveIcon(Data.WatermarkLogo or Data.Logo)
         )
         Window.Watermark = Watermark
     end
@@ -3897,7 +3985,11 @@ Library.CreateWindow = function(self, Data)
         ReorderTabs()
     end
 
-    Window.CreateTab = function(_, TabData)
+    local function WrappedPage(_, TabData)
+        TabData = TabData or {}
+        TabData.Icon = Library:ResolveIcon(TabData.Icon or TabData.icon)
+        TabData.icon = TabData.Icon
+
         local Page = OriginalPage(Window, TabData)
 
         EnsureSettings()
@@ -3905,6 +3997,10 @@ Library.CreateWindow = function(self, Data)
 
         return Page
     end
+
+    Window.Page = WrappedPage
+    Window.CreateTab = WrappedPage
+    Window.CreatePage = WrappedPage
 
     return Window
 end
