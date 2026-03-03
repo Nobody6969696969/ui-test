@@ -3866,25 +3866,42 @@ Library.CreateWindow = function(self, Data)
     Window._AutoSettingsEnabled = Data.SettingsTabEnabled and true or false
     Window._AutoSettingsWatermark = Watermark
 
-    Window.CreateTab = function(Win, TabData)
-        local Page = Win:Page(TabData)
+    local OriginalPage = Window.Page
+    local CreatingSettings = false
 
-        if Win._AutoSettingsEnabled then
-            if not Win.SettingsPage then
-                Win.SettingsPage = Library:CreateSettingsPage(Win, Win._AutoSettingsWatermark)
-            else
-                Win.SettingsPage.Items["Inactive"].Instance.Parent = Win.Items["Pages"].Instance
+    local function ReorderTabs()
+        local Order = 1
 
-                for Index, Value in Win.Pages do
-                    if Value == Win.SettingsPage then
-                        TableRemove(Win.Pages, Index)
-                        break
-                    end
-                end
-
-                TableInsert(Win.Pages, Win.SettingsPage)
+        for _, Value in Window.Pages do
+            if Value ~= Window.SettingsPage and Value.Items and Value.Items["Inactive"] then
+                Value.Items["Inactive"].Instance.LayoutOrder = Order
+                Order += 1
             end
         end
+
+        if Window.SettingsPage and Window.SettingsPage.Items and Window.SettingsPage.Items["Inactive"] then
+            Window.SettingsPage.Items["Inactive"].Instance.LayoutOrder = 999999
+        end
+    end
+
+    local function EnsureSettings()
+        if not Window._AutoSettingsEnabled or Window.SettingsPage or CreatingSettings then
+            ReorderTabs()
+            return
+        end
+
+        CreatingSettings = true
+        Window.SettingsPage = Library:CreateSettingsPage(Window, Window._AutoSettingsWatermark)
+        CreatingSettings = false
+
+        ReorderTabs()
+    end
+
+    Window.CreateTab = function(_, TabData)
+        local Page = OriginalPage(Window, TabData)
+
+        EnsureSettings()
+        ReorderTabs()
 
         return Page
     end
