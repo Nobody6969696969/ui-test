@@ -3846,31 +3846,91 @@ end)
 end
 
 
--- optional clean aliases (non-breaking)
-Library.CreateWindow = Library.Window
+-- cleaner one-call wrappers
+
+do
+    local _OldWindow = Library.Window
+
+    function Library:CreateWindow(Data)
+        Data = Data or {}
+
+        local Window = _OldWindow(self, Data)
+
+        local watermarkEnabled = Data.WatermarkEnabled
+        if watermarkEnabled == nil then
+            watermarkEnabled = Data.Watermark ~= nil and Data.Watermark ~= false
+        end
+
+        local settingsEnabled = Data.SettingsTabEnabled
+        if settingsEnabled == nil then
+            settingsEnabled = Data.SettingsTab ~= false
+        end
+
+        local watermarkObject
+        if watermarkEnabled then
+            local watermarkData = type(Data.Watermark) == "table" and Data.Watermark or {}
+            local watermarkText = watermarkData.Text or Data.WatermarkText or Data.Watermark or Data.Name or "Window"
+            local watermarkLogo = watermarkData.Logo or Data.WatermarkLogo or Data.Logo or "rbxassetid://81441172534384"
+            watermarkObject = self:Watermark(watermarkText, watermarkLogo)
+            Window.Watermark = watermarkObject
+        end
+
+        if settingsEnabled then
+            self:CreateSettingsPage(Window, watermarkObject)
+        end
+
+        return Window
+    end
+
+    -- keep old name working too
+    Library.NewWindow = Library.CreateWindow
+end
+
 Library.CreateWatermark = Library.Watermark
 
-local _oldWindow = Library.Window
-Library.Window = function(self, data)
-    local window = _oldWindow(self, data)
-    if type(window) == 'table' and window.Page then
-        window.CreateTab = window.Page
+Library.Pages.CreateSection = Library.Pages.Section
+Library.Pages.CreateTab = Library.Pages.Page or Library.Pages.Section
+
+Library.Sections.CreateButton = Library.Sections.Button
+Library.Sections.CreateToggle = Library.Sections.Toggle
+Library.Sections.CreateSlider = Library.Sections.Slider
+Library.Sections.CreateDropdown = Library.Sections.Dropdown
+Library.Sections.CreateTextbox = Library.Sections.Textbox
+Library.Sections.CreateLabel = Library.Sections.Label
+
+-- add aliases directly onto window objects
+if not Library._WrappedPageAlias then
+    local _OldWindowForAlias = Library.Window
+    Library.Window = function(self, Data)
+        local Window = _OldWindowForAlias(self, Data)
+
+        if not Window.CreateTab then
+            Window.CreateTab = Window.Page
+        end
+
+        if not Window.CreatePage then
+            Window.CreatePage = Window.Page
+        end
+
+        return Window
     end
-    return window
-end
-Library.CreateWindow = Library.Window
 
-if Library.Pages then
-    Library.Pages.CreateSection = Library.Pages.Section
-end
+    local _OldCreateWindow = Library.CreateWindow
+    function Library:CreateWindow(Data)
+        local Window = _OldCreateWindow(self, Data)
 
-if Library.Sections then
-    Library.Sections.CreateButton = Library.Sections.Button
-    Library.Sections.CreateToggle = Library.Sections.Toggle
-    Library.Sections.CreateSlider = Library.Sections.Slider
-    Library.Sections.CreateDropdown = Library.Sections.Dropdown
-    Library.Sections.CreateTextbox = Library.Sections.Textbox
-    Library.Sections.CreateLabel = Library.Sections.Label
+        if not Window.CreateTab then
+            Window.CreateTab = Window.Page
+        end
+
+        if not Window.CreatePage then
+            Window.CreatePage = Window.Page
+        end
+
+        return Window
+    end
+
+    Library._WrappedPageAlias = true
 end
 
 getgenv().Library = Library
