@@ -3846,84 +3846,31 @@ end)
 end
 
 
-local function __patchLabel(label)
-    if type(label) ~= "table" then return label end
-    if label.Colorpicker and not label.CreateColorPicker then
-        label.CreateColorPicker = label.Colorpicker
-    end
-    if label.Keybind and not label.CreateKeybind then
-        label.CreateKeybind = label.Keybind
-    end
-    return label
-end
+-- optional clean aliases (non-breaking)
+Library.CreateWindow = Library.Window
+Library.CreateWatermark = Library.Watermark
 
-local function __patchSection(section)
-    if type(section) ~= "table" then return section end
-
-    if section.Button and not section.CreateButton then
-        section.CreateButton = section.Button
+local _oldWindow = Library.Window
+Library.Window = function(self, data)
+    local window = _oldWindow(self, data)
+    if type(window) == 'table' and window.Page then
+        window.CreateTab = window.Page
     end
-    if section.Toggle and not section.CreateToggle then
-        section.CreateToggle = section.Toggle
-    end
-    if section.Slider and not section.CreateSlider then
-        section.CreateSlider = section.Slider
-    end
-    if section.Dropdown and not section.CreateDropdown then
-        section.CreateDropdown = section.Dropdown
-    end
-    if section.Textbox and not section.CreateTextbox then
-        section.CreateTextbox = section.Textbox
-    end
-
-    if section.Label and not section.CreateLabel then
-        section.CreateLabel = function(self, text)
-            return __patchLabel(self:Label(text))
-        end
-    end
-
-    return section
-end
-
-local function __patchTab(tab)
-    if type(tab) ~= "table" then return tab end
-
-    if tab.Section and not tab.CreateSection then
-        tab.CreateSection = function(self, data)
-            return __patchSection(self:Section(data))
-        end
-    end
-
-    return tab
-end
-
-local function __patchWindow(window)
-    if type(window) ~= "table" then return window end
-
-    if window.Page and not window.CreateTab then
-        window.CreateTab = function(self, data)
-            return __patchTab(self:Page(data))
-        end
-    end
-
     return window
 end
+Library.CreateWindow = Library.Window
 
-if Library.Window and not Library.CreateWindow then
-    function Library:CreateWindow(data)
-        data = data or {}
-        return __patchWindow(self:Window({
-            Name = data.Title or data.Name or "Window",
-            SubName = data.SubTitle or data.SubName or data.Description or "",
-            Logo = data.Logo or data.Icon
-        }))
-    end
+if Library.Pages then
+    Library.Pages.CreateSection = Library.Pages.Section
 end
 
-if Library.Watermark and not Library.CreateWatermark then
-    function Library:CreateWatermark(text, logo)
-        return self:Watermark(text, logo)
-    end
+if Library.Sections then
+    Library.Sections.CreateButton = Library.Sections.Button
+    Library.Sections.CreateToggle = Library.Sections.Toggle
+    Library.Sections.CreateSlider = Library.Sections.Slider
+    Library.Sections.CreateDropdown = Library.Sections.Dropdown
+    Library.Sections.CreateTextbox = Library.Sections.Textbox
+    Library.Sections.CreateLabel = Library.Sections.Label
 end
 
 getgenv().Library = Library
